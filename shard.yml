@@ -1,0 +1,13 @@
+name: postmany
+version: 0.1.0
+
+authors:
+  - Henrik Holst <6200749+hholst80@users.noreply.github.com>
+
+targets:
+  postmany:
+    main: src/postmany.cr
+
+crystal: 1.3.2
+
+license: UNLICENSE
