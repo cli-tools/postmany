@@ -1,14 +1,14 @@
-# postmany
+# Postmany
 
-The PostMany tool reads filenames from stdin and posts the content of
-the files provided to a HTTP or HTTPS endpoint.
+Postmany reads filenames from stdin and posts the content of the files provided
+to a HTTP or HTTPS endpoint.
 
-Useful for Event driven or asyncronous API data flows.
+Useful for Event driven or asynchronous API data flows.
 
 ## Installation
 
-Build with `shards build --static --production` using
-the Docker image `crystallang/crystal:alpine`.
+Build with `shards build --static --production` using the Docker image
+`crystallang/crystal:alpine`.
 
 ## Usage
 
@@ -23,8 +23,9 @@ $ find files -name data.json|head -n1|postmany "$URL"
 
 This is still ALPHA version software.
 
-It needs some additional testing, and actual unit tests,
-before it should be put into a production context.
+It needs some additional testing, and actual unit tests, before it should be
+put into a production context.  It is already being used for test, and
+integration test workflows.
 
 1. Fork it (<https://github.com/cli-tools/postmany/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
