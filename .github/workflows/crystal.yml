@@ -1,0 +1,33 @@
+name: Crystal CI (build release)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: crystallang/crystal:1.3-alpine
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: shards install
+
+    - name: TODO Run tests
+      run: true
+#     run: crystal spec
+
+    - name: Build release
+      run: shards --production build --release --static
+
+    - name: Strip release
+      run: strip bin/postmany
+
+    - uses: softprops/action-gh-release@v1
+      with:
+        files: bin/postmany
