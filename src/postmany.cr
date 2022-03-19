@@ -5,30 +5,33 @@ require "option_parser"
 require "colorize"
 
 module Postmany
-  VERSION = "0.1.1"
+  VERSION = "v0.2.1"
 
-  c_filename = Channel(String?).new
-  c_ok = Channel(String?).new
-  c_info = Channel(String?).new
-  c_error = Channel(String?).new
+  c_filename = Channel(String).new
+  c_ok = Channel(String).new
+  c_info = Channel(String).new
+  c_error = Channel(String).new
   c_output = Channel({Colorize::Object(String), Bool}).new
+  c_stdout = Channel(String).new
   # c_output = Channel({String, Bool}).new
   uri : URI? = nil
   count : Int32 = 0
   skipped : Int32 = 0
-  workers : Int32 = 16
+  workers : Int32 = 10
   verbose : Bool = false
+  progress : Bool = true
+  method : String = "POST"
 
   # TODO: Add reasonable options
 
   option_parser = OptionParser.parse do |parser|
     parser.banner = "Usage: postmany [OPTIONS] [ENDPOINT]"
-    parser.on("-w WORKERS", "--workers=WORKERS", "number of workers (16)") { |arg| workers = Int32.new arg }
+    parser.on("-w WORKERS", "--workers=WORKERS", "number of workers (10)") { |arg| workers = Int32.new arg }
     parser.on("-v", "--verbose", "verbose output (false)") { verbose = true }
-    # parser.on "URL", "Request URL" do |url|
-    #  uri = URI.parse url
-    # end
+    parser.on("--no-progress", "disable progress meter") { progress = false }
+    parser.on("-X METHOD", "--request=METHOD", "HTTP method: POST, PUT or GET (POST)") { |arg| method = arg.upcase }
     parser.on("-h", "--help", "show help") { STDERR.puts parser; exit(0) }
+    parser.on("--version", "show version") { puts "Postmany #{VERSION}"; exit(0) }
     parser.invalid_option do |flag|
       STDERR.puts "postmany: Unrecognized option '#{flag}'"
       STDERR.puts parser
@@ -45,14 +48,22 @@ module Postmany
     exit 1
   end
 
-  path = uri.as(URI).@path
-  query = uri.as(URI).@query
-  if !query.nil?
-    path = "#{path}?#{query}"
+  if !Set{"GET", "POST", "PUT"}.includes? method
+    STDERR.puts "Error: MODE must be either POST, PUT or GET"
+    exit 1
   end
 
+  path = uri.as(URI).@path
+  query = uri.as(URI).@query
+  if path == ""
+    path = "/"
+  end
+  if !path.ends_with?("/")
+    path += "/"
+  end
+
+
   workers.times do |worker_id|
-    # TODO: Use a built-in Int32 -> Hex String method
     pre = "[#{worker_id.to_s.rjust(3)}]"
     spawn do
       begin
@@ -62,10 +73,9 @@ module Postmany
         exit 2
       end
       loop do
-        filename = c_filename.receive
-        if filename.nil?
-          break
-        else
+        filename = c_filename.receive?
+        break if filename.nil?
+        if method == "POST" || method == "PUT"
           begin
             content = File.read(filename)
           rescue File::NotFoundError
@@ -85,14 +95,65 @@ module Postmany
                       HTTP::Headers{"Content-Type" => content_type}
                     end
           begin
-            response = client.post path, headers, body = content
+            if method == "POST"
+              if query.nil?
+                response = client.post path, headers, body = content
+              else
+                response = client.post "#{path}?#{query}", headers, body = content
+              end
+            else # method == PUT
+              if query.nil?
+                !p path, filename
+                response = client.put "#{path}#{filename}", headers, body = content
+              else
+                !p path, filename, query
+                response = client.put "#{path}#{filename}?#{query}", headers, body = content
+              end
+            end
             if Set{200, 201, 202}.includes? response.status_code
               c_ok.send "#{pre}: OK: #{filename}"
+              c_stdout.send filename
             else
               c_error.send "#{pre} HTTP POST error #{response.status_code}: #{filename}"
               c_filename.send filename
               sleep 1
             end
+          rescue ex : ArgumentError
+            STDERR.puts "exception: #{ex}"
+            skipped += 1
+          rescue ex : Socket::Addrinfo::Error
+            STDERR.puts "#{pre}: Error: #{ex}"
+            skipped += 1
+          end
+        else # method GET
+          begin
+            if query
+              response = client.get("#{path}#{filename}?#{query}")
+            else
+              response = client.get("#{path}#{filename}")
+            end
+            if Set{200}.includes? response.status_code
+              content = response.body
+              begin
+                Dir.mkdir_p Path[filename].dirname
+                File.write(filename, content)
+                # puts "OK wrote the stuff to disk"
+                c_ok.send "#{pre}: OK: #{filename}"
+              rescue ex
+                # fail
+                puts "Error: #{ex}"
+                skipped += 1
+              end
+              # c_ok.send "#{pre}: OK: #{filename}"
+              c_stdout.send filename
+            else
+              c_error.send "#{pre} HTTP GET error #{response.status_code}: #{filename}"
+              c_filename.send filename
+              sleep 1
+            end
+          rescue ex : ArgumentError
+            STDERR.puts "exception: #{ex}"
+            skipped += 1
           rescue ex : Socket::Addrinfo::Error
             STDERR.puts "#{pre}: Error: #{ex}"
             skipped += 1
@@ -105,69 +166,92 @@ module Postmany
     end
   end
 
+  # c_stdout processor
+
+  spawn do
+    loop do
+      str = c_stdout.receive?
+      break if str.nil?
+      puts str
+    end
+  end
+
+  # c_output processor
+
   spawn do
     dirty = false
     loop do
-      output, keep = c_output.receive
+      output = c_output.receive?
+      break if output.nil?
+      output, keep = output
       if dirty && keep
-        puts
-        puts output
+        STDERR.puts
+        STDERR.puts output
         dirty = false
       elsif dirty && !keep
-        print output
-        print "\r"
+        STDERR.print output
+        STDERR.print "\r"
       elsif !dirty && keep
-        puts output
+        STDERR.puts output
       else # !dirty && !keep
-        print output
-        print "\r"
+        STDERR.print output
+        STDERR.print "\r"
         dirty = true
       end
     end
   end
 
-  spawn do
-    loop do
-      err = c_error.receive
-      if err.nil?
-        break
-      else
-        c_output.send({err.colorize(:red), true})
-        # c_output.send({err, true})
-      end
-    end
-  end
+  # c_error processor
 
   spawn do
     loop do
-      info = c_info.receive
-      if info.nil?
-        break
-      else
-        c_output.send({info.colorize(:cyan), true})
-        # c_output.send({info, true})
-      end
+      err = c_error.receive?
+      break if err.nil?
+      c_output.send({err.colorize(:red), true})
     end
   end
 
+  # c_info processor
+
   spawn do
+    loop do
+      info = c_info.receive?
+      break if info.nil?
+      c_output.send({info.colorize(:cyan), true})
+    end
+  end
+
+  # c_ok processor
+
+  spawn do
+    exit if !progress
     count = 0
+    t0 = Time.utc
     loop do
-      ok = c_ok.receive
-      if ok.nil?
-        c_output.send({"OK: #{count} files sent; #{skipped} skipped".colorize(:green), true})
-        # c_output.send({"OK: #{count} files sent; #{skipped} skipped", true})
-        break
-      else
+      begin
+        ok = c_ok.receive
         count += 1
-        if verbose
-          puts ok
+        t1 = Time.utc
+        if (t1 - t0).seconds < 2
+          next
+        else
+          t0 = t1
         end
-        if count % 100 == 0
+        case method
+        when "GET"
+          c_output.send({"OK: #{count} files received; #{skipped} skipped".colorize(:green), false})
+        when "POST", "PUT"
           c_output.send({"OK: #{count} files sent; #{skipped} skipped".colorize(:green), false})
-          # c_output.send({"OK: #{count} files sent; #{skipped} skipped", false})
         end
+      rescue Channel::ClosedError
+        break
       end
+    end
+    case method
+    when "GET"
+      c_output.send({"OK: #{count} files received; #{skipped} skipped".colorize(:green), true})
+    else
+      c_output.send({"OK: #{count} files sent; #{skipped} skipped".colorize(:green), true})
     end
   end
 
@@ -180,17 +264,15 @@ module Postmany
     file_count += 1
     c_filename.send filename
   end
+  c_filename.close
   # TODO: Use messages instead of a shared variable w/spinlock
   loop do
     break if count + skipped == file_count
-    sleep 0.1
-  end
-  workers.times do
-    c_filename.send(nil)
+    Fiber.yield
   end
   sleep 0.1
-  c_ok.send nil
-  c_info.send nil
-  c_error.send nil
+  c_ok.close
+  c_info.close
+  c_error.close
   Fiber.yield
 end
