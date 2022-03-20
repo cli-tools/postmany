@@ -1,3 +1,5 @@
+![crystal workflow](https://github.com/cli-tools/postmany/actions/workflows/crystal.yml/badge.svg)
+
 # Postmany
 
 Postmany reads filenames from stdin and posts the content of the files provided
