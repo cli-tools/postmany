@@ -5,7 +5,7 @@ require "option_parser"
 require "colorize"
 
 module Postmany
-  VERSION        = "v0.3.0"
+  VERSION        = "v0.3.1"
   UPDATE_SECONDS = 2
 
   alias OutputTuple = {String | Colorize::Object(String), Bool, IO}
@@ -103,9 +103,11 @@ module Postmany
                 rescue ex
                   STDERR.puts "#{filename}: #{ex}"
                   c_count.send :skipped
+                  break
                 else
                   c_count.send :ok
                   puts filename unless silent
+                  break
                 end
               else
                 STDERR.puts "#{filename}: HTTP GET error #{response.status_code}"
@@ -115,9 +117,15 @@ module Postmany
             rescue ex : ArgumentError
               STDERR.puts "#{filename}: #{ex}"
               c_count.send :skipped
+              break
             rescue ex : Socket::Addrinfo::Error
               STDERR.puts "#{filename}: #{ex}"
               c_count.send :skipped
+              break
+            rescue ex
+              STDERR.puts "#{filename}: #{ex}"
+              c_count.send :skipped
+              break
             end
           end
         end
