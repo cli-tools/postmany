@@ -21,6 +21,17 @@ $ URL=http://webhook.site/123-123-123-123
 $ find files -name data.json|head -n1|postmany "$URL"
 ```
 
+Or, upload a bunch of files to Azure Blob storage:
+
+```
+$ SAS="?sv=2020-10-02&st=2022-03-20T22%3A09%3A30Z&se=2022-03-21T22%3A09%3A30Z&sr=c&sp=racwdxlt&sig=zdbnXR4qZN%2BkPd6pW5qvjhTaqp927nM2Y0Of0qQC8xU%3D"
+$ STORAGE_ACCOUNT=mystorageaccount
+$ CONTAINER=mycontainer
+$ find images -name '*.png' | postmany -XPUT -H x-ms-blob-type:BlockBlob "https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}${SAS}"
+```
+
+See https://docs.microsoft.com/en-us/rest/api/storageservices/put-blob for additional details on Azure Blob storage.
+
 ## Contributing
 
 This is still ALPHA version software.
