@@ -9,8 +9,8 @@ Useful for Event driven or asynchronous API data flows.
 
 ## Installation
 
-Build with `shards build --static --production` using the Docker image
-`crystallang/crystal:alpine`.
+Build with `shards --production build --release --static --production`
+using the Docker image `crystallang/crystal:alpine`.
 
 ## Usage
 
