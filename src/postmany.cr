@@ -79,12 +79,11 @@ module Postmany
                 sleep 1
                 next # try loop again with the same file
               end
-            rescue ex : ArgumentError
+            rescue ex
+              # ex : ArgumentError | Socket::Addrinfo:Error | Socket::ConnectError | Exception
               STDERR.puts "#{filename}: #{ex}"
               c_count.send :skipped
-            rescue ex : Socket::Addrinfo::Error
-              STDERR.puts "#{filename}: #{ex}"
-              c_count.send :skipped
+              break
             else
               break
             end

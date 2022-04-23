@@ -69,7 +69,8 @@ end
 count = 0
 loop do
   break if count == file_count && ingest.dead?
-  count = c_count_out.receive
+  count = c_count_out.receive?
+  sleep (0.1).seconds
 end
 c_filename.close
 c_count_in.close
