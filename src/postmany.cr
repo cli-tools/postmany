@@ -5,7 +5,7 @@ require "option_parser"
 require "colorize"
 
 module Postmany
-  VERSION        = "v0.3.1"
+  VERSION        = "v0.3.3"
   UPDATE_SECONDS = 2
 
   alias OutputTuple = {String | Colorize::Object(String), Bool, IO}
@@ -110,8 +110,12 @@ module Postmany
                 end
               else
                 STDERR.puts "#{filename}: HTTP GET error #{response.status_code}"
-                c_filename.send filename
-                sleep 1
+                if 400 <= response.status_code < 500
+                  c_count.send :skipped
+                  break
+                else
+                  sleep 1
+                end
               end
             rescue ex : ArgumentError
               STDERR.puts "#{filename}: #{ex}"
