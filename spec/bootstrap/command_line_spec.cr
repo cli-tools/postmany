@@ -40,6 +40,18 @@ describe Postmany::Bootstrap::CommandLine do
     error.message.should eq("Error: MODE must be either POST, PUT or GET")
   end
 
+  it "raises exit request when workers is below 1" do
+    stdout = IO::Memory.new
+    stderr = IO::Memory.new
+
+    error = expect_raises(Postmany::Bootstrap::ExitRequested) do
+      Postmany::Bootstrap::CommandLine.new.parse(["-w", "0", "https://example.test"], stdout, stderr)
+    end
+
+    error.code.should eq(1)
+    error.message.should eq("Error: WORKERS must be at least 1")
+  end
+
   it "raises version exit request" do
     stdout = IO::Memory.new
     stderr = IO::Memory.new

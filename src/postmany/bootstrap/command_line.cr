@@ -34,6 +34,10 @@ class Postmany::Bootstrap::CommandLine
 
     parser.parse(argv)
 
+    if workers < 1
+      raise Postmany::Bootstrap::ExitRequested.new(1, "Error: WORKERS must be at least 1", stderr)
+    end
+
     endpoint_arg = argv[0]?
     if endpoint_arg.nil?
       raise Postmany::Bootstrap::ExitRequested.new(1, "Error: URL was not provided", stderr)

@@ -64,7 +64,7 @@ printf "docs/a.json\ndocs/b.json\n" | postmany -X GET "https://example.test/file
 
 | Option | Description |
 |---|---|
-| `-w`, `--workers=WORKERS` | Number of workers (default: `1`) |
+| `-w`, `--workers=WORKERS` | Number of workers (default: `1`, minimum: `1`) |
 | `-s`, `--silent` | Disable per-file stdout output |
 | `--no-progress` | Disable progress messages |
 | `-X`, `--request=METHOD` | HTTP method: `POST`, `PUT`, `GET` (default: `POST`) |
