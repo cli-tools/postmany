@@ -1,6 +1,6 @@
 services:
   dev:
-    image: crystallang/crystal:1.7-alpine
+    image: crystallang/crystal:1.19.1-alpine
     init: true
     command: sleep inf
     container_name: crystal

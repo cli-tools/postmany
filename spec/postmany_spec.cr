@@ -1,9 +1,7 @@
 require "./spec_helper"
 
 describe Postmany do
-  # TODO: Write tests
-
-  it "works" do
-    false.should eq(true)
+  it "defines a version" do
+    Postmany::VERSION.should_not be_nil
   end
 end

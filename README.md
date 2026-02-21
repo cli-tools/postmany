@@ -1,54 +1,85 @@
-![crystal workflow](https://github.com/cli-tools/postmany/actions/workflows/crystal.yml/badge.svg)
+![crystal workflow](https://github.com/cli-tools/postmany/actions/workflows/ci.yml/badge.svg)
 
 # Postmany
 
-Postmany reads filenames from stdin and posts the content of the files provided
-to a HTTP or HTTPS endpoint.
+Postmany reads filenames from `stdin` and transfers file content to/from an HTTP(S) endpoint.
 
-Useful for Event driven or asynchronous API data flows.
+It is designed for event-driven pipelines where a list of files is produced by one tool and streamed to another system.
+
+## Features
+
+- Stream filenames from `stdin`
+- Upload with `POST` or `PUT`
+- Download with `GET`
+- Multiple worker fibers (`-w`) for concurrent transfers
+- Static request headers (`-H`) for APIs like Azure Blob
 
 ## Installation
 
-Build with
+### Build from source
+
+```sh
+shards install
+shards --production build --release --static
 ```
-shards build --production --release --static
+
+The compiled binary is written to `bin/postmany`.
+
+### Docker development image
+
+Use `compose.yml` with `crystallang/crystal:1.19.1-alpine`:
+
+```sh
+docker compose run --rm dev shards install
+docker compose run --rm dev crystal spec
 ```
-using the Docker image `crystallang/crystal:alpine`.
 
 ## Usage
 
-Give it a list of files and pipe it through `postmany`:
+### POST upload
 
-```
-$ URL=http://webhook.site/123-123-123-123
-$ find files -name data.json|head -n1|postmany "$URL"
-```
-
-Or, upload a bunch of files to Azure Blob storage:
-
-```
-$ SAS="?sv=2020-10-02&st=2022-03-20T22%3A09%3A30Z&se=2022-03-21T22%3A09%3A30Z&sr=c&sp=racwdxlt&sig=zdbnXR4qZN%2BkPd6pW5qvjhTaqp927nM2Y0Of0qQC8xU%3D"
-$ STORAGE_ACCOUNT=mystorageaccount
-$ CONTAINER=mycontainer
-$ find images -name '*.png' | postmany -XPUT -H x-ms-blob-type:BlockBlob "https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}${SAS}"
+```sh
+URL="https://example.test/webhook"
+find files -name '*.json' | postmany "$URL"
 ```
 
-See https://docs.microsoft.com/en-us/rest/api/storageservices/put-blob for additional details on Azure Blob storage.
+### PUT upload (Azure Blob style)
 
-## Contributing
+```sh
+SAS="?sv=2020-10-02&..."
+STORAGE_ACCOUNT="mystorageaccount"
+CONTAINER="mycontainer"
+find images -name '*.png' | \
+  postmany -X PUT -H x-ms-blob-type:BlockBlob \
+  "https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}${SAS}"
+```
 
-This is still ALPHA version software.
+### GET download
 
-It needs some additional testing, and actual unit tests, before it should be
-put into a production context.  It is already being used for test, and
-integration test workflows.
+```sh
+printf "docs/a.json\ndocs/b.json\n" | postmany -X GET "https://example.test/files"
+```
 
-1. Fork it (<https://github.com/cli-tools/postmany/fork>)
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request
+## CLI Reference
 
-## Contributors
+| Option | Description |
+|---|---|
+| `-w`, `--workers=WORKERS` | Number of workers (default: `1`) |
+| `-s`, `--silent` | Disable per-file stdout output |
+| `--no-progress` | Disable progress messages |
+| `-X`, `--request=METHOD` | HTTP method: `POST`, `PUT`, `GET` (default: `POST`) |
+| `-H`, `--header=HEADER` | Static HTTP header (`key:value`) |
+| `-h`, `--help` | Show help |
+| `--version` | Show version |
 
-- [CLI tools community](https://github.com/cli-tools) - creator and maintainer
+Positional argument:
+
+- `ENDPOINT` (required): target URL.
+
+## Engineering Docs
+
+Contributor workflows, architecture, and CI/CD details live in `CONTRIBUTING.md`.
+
+## License
+
+UNLICENSE.
